@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  PURCHASER
+  APPROVER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  name         String
+  passwordHash String
+  role         Role      @default(PURCHASER)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  sessions           Session[]
+  purchaseRequests   PurchaseRequest[] @relation("PRRequester")
+  approvedRequests   PurchaseRequest[] @relation("PRApprover")
+  purchaseOrders     PurchaseOrder[]   @relation("POCreator")
+  auditLogs          AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Supplier {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  taxCode     String?
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  bankAccount String?
+  notes       String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+  quotations     Quotation[]
+  contracts      Contract[]
+}
+
+model Material {
+  id          String   @id @default(cuid())
+  name        String
+  unit        String
+  category    String
+  stage       String?
+  techSpec    String?
+  norm        Float?
+  normUnit    String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  prItems        PurchaseRequestItem[]
+  poItems        PurchaseOrderItem[]
+  stock          StockItem?
+  stockMovements StockMovement[]
+}
+
+enum PRStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model PurchaseRequest {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  department   String?
+  status       PRStatus @default(DRAFT)
+  note         String?
+  requesterId  String
+  requester    User     @relation("PRRequester", fields: [requesterId], references: [id])
+  approverId   String?
+  approver     User?    @relation("PRApprover", fields: [approverId], references: [id])
+  approvedAt   DateTime?
+  approveNote  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items          PurchaseRequestItem[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseRequestItem {
+  id                String          @id @default(cuid())
+  purchaseRequestId String
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  materialId        String?
+  material          Material?       @relation(fields: [materialId], references: [id])
+  name              String
+  unit              String
+  quantity          Float
+  estimatedPrice    Float?
+  note              String?
+}
+
+enum POStatus {
+  DRAFT
+  SENT
+  CONFIRMED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id                String    @id @default(cuid())
+  code              String    @unique
+  supplierId        String
+  supplier          Supplier  @relation(fields: [supplierId], references: [id])
+  purchaseRequestId String?
+  purchaseRequest   PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id])
+  status            POStatus  @default(DRAFT)
+  expectedDate      DateTime?
+  note              String?
+  creatorId         String
+  creator           User      @relation("POCreator", fields: [creatorId], references: [id])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  items       PurchaseOrderItem[]
+  contracts   Contract[]
+  payments    Payment[]
+  stockMoves  StockMovement[]
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  materialId      String?
+  material        Material?     @relation(fields: [materialId], references: [id])
+  name            String
+  unit            String
+  quantity        Float
+  unitPrice       Float
+  receivedQty     Float         @default(0)
+}
+
+model Quotation {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  content    String?
+  totalValue Float?
+  validUntil DateTime?
+  createdAt  DateTime @default(now())
+}
+
+model Contract {
+  id              String         @id @default(cuid())
+  code            String         @unique
+  supplierId      String
+  supplier        Supplier       @relation(fields: [supplierId], references: [id])
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  startDate       DateTime?
+  endDate         DateTime?
+  value           Float?
+  notes           String?
+  createdAt       DateTime       @default(now())
+}
+
+model StockItem {
+  id         String   @id @default(cuid())
+  materialId String   @unique
+  material   Material @relation(fields: [materialId], references: [id])
+  quantity   Float    @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+enum StockMoveType {
+  IN
+  OUT
+  ADJUST
+}
+
+model StockMovement {
+  id              String        @id @default(cuid())
+  materialId      String
+  material        Material      @relation(fields: [materialId], references: [id])
+  type            StockMoveType
+  quantity        Float
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  note            String?
+  createdAt       DateTime      @default(now())
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  amount          Float
+  method          String?
+  note            String?
+  paidAt          DateTime      @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  detail     String?
+  createdAt  DateTime @default(now())
+}
