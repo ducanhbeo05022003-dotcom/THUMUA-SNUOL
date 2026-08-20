@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { getPrismaClient } from "@/lib/prisma";
 
 export async function PUT(
   request: NextRequest,
@@ -11,7 +11,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const material = await prisma.material.update({
+    const material = await getPrismaClient().material.update({
       where: { id },
       data: {
         name: body.name,
@@ -36,7 +36,7 @@ export async function DELETE(
   try {
     await requireAuth();
     const { id } = await params;
-    await prisma.material.update({
+    await getPrismaClient().material.update({
       where: { id },
       data: { active: false },
     });

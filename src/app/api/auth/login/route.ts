@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { getPrismaClient } from "@/lib/prisma";
 import { createSession, verifyPassword } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await getPrismaClient().user.findUnique({
       where: { username },
     });
 

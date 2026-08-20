@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { getPrismaClient } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
     const user = await requireAuth();
-    const prs = await prisma.purchaseRequest.findMany({
+    const prs = await getPrismaClient().purchaseRequest.findMany({
       include: { requester: true, approver: true, items: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const code = `PR${Date.now()}`;
-    const pr = await prisma.purchaseRequest.create({
+    const pr = await getPrismaClient().purchaseRequest.create({
       data: {
         code,
         department: body.department,

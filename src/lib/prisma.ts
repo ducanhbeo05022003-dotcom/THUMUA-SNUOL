@@ -1,25 +1,24 @@
 import { PrismaClient } from "@prisma/client";
 
-const prismaClientSingleton = () => {
-  const db_url = process.env.DATABASE_URL || "postgresql://localhost/dummy";
+let prismaClient: PrismaClient | null = null;
 
-  let adapter: any;
-  try {
-    const { PrismaPg } = require("@prisma/adapter-pg");
-    adapter = new PrismaPg({ connectionString: db_url });
-  } catch (e) {
-    // Build time - adapter not available, will fail at runtime if needed
+export function getPrismaClient(): PrismaClient {
+  if (prismaClient) return prismaClient;
+
+  const db_url = process.env.DATABASE_URL;
+  if (!db_url) {
+    throw new Error("DATABASE_URL environment variable is not set");
   }
 
-  return new PrismaClient(adapter ? { adapter } : {});
-};
+  try {
+    const { PrismaPg } = require("@prisma/adapter-pg");
+    const adapter = new PrismaPg({ connectionString: db_url });
+    prismaClient = new PrismaClient({ adapter });
+  } catch (e) {
+    prismaClient = new PrismaClient();
+  }
 
-declare global {
-  var prisma: undefined | ReturnType<typeof prismaClientSingleton>;
+  return prismaClient;
 }
 
-const prisma = globalThis.prisma ?? prismaClientSingleton();
-
-if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;
-
-export default prisma;
+export default { getPrismaClient };

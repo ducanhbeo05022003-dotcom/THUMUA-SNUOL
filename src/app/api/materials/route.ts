@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { getPrismaClient } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
     await requireAuth();
-    const materials = await prisma.material.findMany({
+    const materials = await getPrismaClient().material.findMany({
       where: { active: true },
       orderBy: { name: 'asc' },
     });
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth();
     const body = await request.json();
-    const material = await prisma.material.create({
+    const material = await getPrismaClient().material.create({
       data: {
         name: body.name,
         unit: body.unit,

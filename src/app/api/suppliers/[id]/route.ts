@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { getPrismaClient } from "@/lib/prisma";
 
 export async function PUT(
   request: NextRequest,
@@ -11,7 +11,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const supplier = await prisma.supplier.update({
+    const supplier = await getPrismaClient().supplier.update({
       where: { id },
       data: {
         code: body.code,
@@ -38,7 +38,7 @@ export async function DELETE(
   try {
     await requireAuth();
     const { id } = await params;
-    await prisma.supplier.update({
+    await getPrismaClient().supplier.update({
       where: { id },
       data: { active: false },
     });

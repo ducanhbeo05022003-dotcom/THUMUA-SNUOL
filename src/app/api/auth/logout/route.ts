@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import prisma from '@/lib/prisma';
+import { getPrismaClient } from "@/lib/prisma";
 
 const SESSION_COOKIE = 'qlmh_session';
 
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const token = cookieStore.get(SESSION_COOKIE)?.value;
 
     if (token) {
-      await prisma.session.delete({ where: { token } }).catch(() => {});
+      await getPrismaClient().session.delete({ where: { token } }).catch(() => {});
     }
 
     const response = NextResponse.json({ success: true });

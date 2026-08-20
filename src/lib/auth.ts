@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import * as bcrypt from "bcryptjs";
-import prisma from "./prisma";
+import { getPrismaClient } from "./prisma";
 
 const SESSION_COOKIE = "qlmh_session";
 const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -21,7 +21,7 @@ export async function createSession(userId: string) {
   const token = Math.random().toString(36).slice(2);
   const expiresAt = new Date(Date.now() + SESSION_DURATION);
 
-  await prisma.session.create({
+  await getPrismaClient().session.create({
     data: {
       token,
       userId,
@@ -44,14 +44,14 @@ export async function getSession() {
 
   if (!token) return null;
 
-  const session = await prisma.session.findUnique({
+  const session = await getPrismaClient().session.findUnique({
     where: { token },
     include: { user: true },
   });
 
   if (!session || session.expiresAt < new Date()) {
     if (session) {
-      await prisma.session.delete({ where: { token } });
+      await getPrismaClient().session.delete({ where: { token } });
     }
     return null;
   }
