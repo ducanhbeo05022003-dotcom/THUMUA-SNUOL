@@ -1,2 +1,3 @@
 // Prisma 7 configuration file
-// Connection URLs are passed to PrismaClient constructor instead
+// Database connection is handled in src/lib/prisma.ts
+module.exports = {};
