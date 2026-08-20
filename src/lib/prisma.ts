@@ -2,8 +2,11 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const prismaClientSingleton = () => {
+  if (!process.env.DATABASE_URL) {
+    return new PrismaClient();
+  }
   const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL || "",
+    connectionString: process.env.DATABASE_URL,
   });
   return new PrismaClient({ adapter });
 };
