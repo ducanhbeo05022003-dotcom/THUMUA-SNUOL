@@ -5,15 +5,21 @@ export function getPrismaClient(): any {
 
   try {
     const { PrismaClient } = require("@prisma/client");
+    const { PrismaNeon } = require("@prisma/adapter-neon");
+    const { neon } = require("@neondatabase/serverless");
 
     const databaseUrl = process.env.DATABASE_URL;
-    console.log("DATABASE_URL available:", !!databaseUrl);
-    console.log("DATABASE_URL starts with:", databaseUrl?.substring(0, 20));
+    if (!databaseUrl) {
+      throw new Error("DATABASE_URL environment variable is not set");
+    }
 
-    prismaClient = new PrismaClient();
-    console.log("Prisma client initialized successfully");
+    const sql = neon(databaseUrl);
+    const adapter = new PrismaNeon(sql);
+
+    prismaClient = new PrismaClient({ adapter });
+    console.log("Prisma client initialized with Neon adapter");
   } catch (e: any) {
-    console.error("Failed to initialize Prisma:", e?.message || e);
+    console.error("Failed to initialize Prisma:", e?.message || String(e));
     throw e;
   }
 
