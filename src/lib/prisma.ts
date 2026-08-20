@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+let prismaClient: any = null;
 
-let prismaClient: PrismaClient | null = null;
-
-export function getPrismaClient(): PrismaClient {
+export function getPrismaClient(): any {
   if (prismaClient) return prismaClient;
 
   const db_url = process.env.DATABASE_URL;
@@ -11,10 +9,12 @@ export function getPrismaClient(): PrismaClient {
   }
 
   try {
+    const { PrismaClient } = require("@prisma/client");
     const { PrismaPg } = require("@prisma/adapter-pg");
     const adapter = new PrismaPg({ connectionString: db_url });
     prismaClient = new PrismaClient({ adapter });
   } catch (e) {
+    const { PrismaClient } = require("@prisma/client");
     prismaClient = new PrismaClient();
   }
 
