@@ -5,8 +5,8 @@ export function getPrismaClient(): any {
 
   try {
     const { PrismaClient } = require("@prisma/client");
-    const { PrismaPg } = require("@prisma/adapter-pg");
-    const { Pool } = require("pg");
+    const { PrismaNeon } = require("@prisma/adapter-neon");
+    const { Pool } = require("@neondatabase/serverless");
 
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) {
@@ -14,7 +14,7 @@ export function getPrismaClient(): any {
     }
 
     const pool = new Pool({ connectionString: databaseUrl });
-    const adapter = new PrismaPg(pool);
+    const adapter = new PrismaNeon(pool);
 
     prismaClient = new PrismaClient({ adapter });
   } catch (e) {
