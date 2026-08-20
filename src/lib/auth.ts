@@ -80,7 +80,7 @@ export async function logout() {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (token) {
-    await prisma.session.delete({ where: { token } }).catch(() => {});
+    await getPrismaClient().session.delete({ where: { token } }).catch(() => {});
   }
 
   cookieStore.delete(SESSION_COOKIE);
