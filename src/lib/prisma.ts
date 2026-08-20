@@ -5,7 +5,15 @@ export function getPrismaClient(): any {
 
   try {
     const { PrismaClient } = require("@prisma/client");
-    prismaClient = new PrismaClient();
+    const databaseUrl = process.env.DATABASE_URL;
+
+    if (!databaseUrl) {
+      throw new Error("DATABASE_URL environment variable is not set");
+    }
+
+    prismaClient = new PrismaClient({
+      datasourceUrl: databaseUrl,
+    });
   } catch (e) {
     console.error("Failed to initialize Prisma:", e);
     throw e;
