@@ -36,14 +36,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-100">
-      <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-lg">
+    <div
+      className="flex items-center justify-center min-h-screen bg-cover bg-center relative"
+      style={{ backgroundImage: "url('/login-bg.jpg')" }}
+    >
+      <div className="absolute inset-0 bg-slate-900/40" />
+      <div className="w-full max-w-md bg-white/95 backdrop-blur-sm p-8 rounded-2xl shadow-2xl relative z-10 mx-4">
         <div className="text-center mb-8">
           <div className="bg-blue-600 text-white p-3 rounded-lg font-bold text-lg inline-block mb-4">
             QLMH
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Quản lý mua hàng</h1>
-          <p className="text-sm text-slate-500 mt-2">Đăng nhập để tiếp tục</p>
+          <p className="text-sm text-slate-500 mt-2">KLH Snuol · Đăng nhập để tiếp tục</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
