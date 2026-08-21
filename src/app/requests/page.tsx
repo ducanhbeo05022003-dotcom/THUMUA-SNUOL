@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, RefreshCw } from 'lucide-react';
 import { useColumnResize } from '@/hooks/useColumnResize';
 
 const REQUEST_COLUMNS = [
@@ -59,6 +59,8 @@ export default function RequestsPage() {
   const { widths, startResize, resetWidths } = useColumnResize('requests-table-widths', REQUEST_COL_DEFAULTS);
   const [prs, setPrs] = useState<PurchaseRequest[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState<PurchaseRequest | null>(null);
   const [formData, setFormData] = useState({
@@ -72,7 +74,7 @@ export default function RequestsPage() {
   });
 
   useEffect(() => {
-    fetchPRs();
+    syncFromSheet(true);
   }, []);
 
   const fetchPRs = async () => {
@@ -84,6 +86,20 @@ export default function RequestsPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const syncFromSheet = async (silent = false) => {
+    setSyncing(true);
+    if (!silent) setLoading(true);
+    try {
+      await fetch('/api/sync/requests', { method: 'POST' });
+      setLastSync(new Date());
+    } catch (error) {
+      console.error('Sync error:', error);
+    } finally {
+      setSyncing(false);
+      fetchPRs();
     }
   };
 
@@ -120,15 +136,28 @@ export default function RequestsPage() {
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Đề xuất mua hàng</h1>
-          <p className="text-slate-500 text-sm mt-1">Theo dõi tiến độ phiếu đề xuất · tạo đề xuất mới trực tuyến</p>
+          <p className="text-slate-500 text-sm mt-1">
+            Theo dõi tiến độ phiếu đề xuất · đồng bộ tự động từ Google Sheet
+            {lastSync && <span className="text-slate-400"> · cập nhật lúc {lastSync.toLocaleTimeString('vi-VN')}</span>}
+          </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-sm transition"
-        >
-          <Plus className="w-4 h-4" />
-          Tạo đề xuất mới
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => syncFromSheet(false)}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-sm text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Đang đồng bộ...' : 'Đồng bộ ngay'}
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-sm transition"
+          >
+            <Plus className="w-4 h-4" />
+            Tạo đề xuất mới
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
@@ -318,6 +347,23 @@ export default function RequestsPage() {
             </div>
             <div className="p-6 space-y-4 text-sm">
               <p className="text-slate-700"><strong>Nội dung:</strong> {detail.note || '—'}</p>
+
+              {detail.items && detail.items.length > 0 && (
+                <div className="border border-slate-100 rounded-xl overflow-hidden">
+                  <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-700">
+                    Danh sách vật tư ({detail.items.length})
+                  </div>
+                  <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                    {detail.items.map((it) => (
+                      <div key={it.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
+                        <span className="text-slate-700 truncate pr-2">{it.name}</span>
+                        <span className="text-slate-500 shrink-0 font-mono">{it.quantity} {it.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div><span className="text-slate-500">Người gửi:</span> <span className="font-medium">{detail.senderName || detail.requester.name}</span></div>
                 <div><span className="text-slate-500">Ngày nhận:</span> <span className="font-medium">{fmtDate(detail.receivedDate || detail.createdAt)}</span></div>
