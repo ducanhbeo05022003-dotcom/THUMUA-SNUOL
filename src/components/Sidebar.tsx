@@ -53,7 +53,7 @@ export function Sidebar({ user }: SidebarProps) {
   };
 
   return (
-    <aside className="w-56 bg-white border-r border-slate-200 flex flex-col shrink-0 h-screen fixed left-0 top-0">
+    <aside className="w-56 bg-white/90 backdrop-blur-sm border-r border-slate-200/70 flex flex-col shrink-0 h-full overflow-y-auto">
       {/* Header */}
       <div className="p-4 border-b border-slate-100">
         <div className="flex items-center gap-2 mb-4">
