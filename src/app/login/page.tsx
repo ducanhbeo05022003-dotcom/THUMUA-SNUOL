@@ -1,14 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +24,10 @@ export default function LoginPage() {
         const data = await res.json();
         setError(data.error || 'Đăng nhập thất bại');
       } else {
-        router.push('/');
+        // Force a full navigation so the root layout re-reads the
+        // session cookie (client router cache would otherwise keep
+        // serving the pre-login, sidebar-less layout).
+        window.location.href = '/';
       }
     } catch (err) {
       setError('Lỗi kết nối');
