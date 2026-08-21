@@ -27,6 +27,10 @@ export async function POST(request: NextRequest) {
         department: body.department,
         note: body.note,
         requesterId: user.id,
+        company: body.company || undefined,
+        requiredTime: body.requiredTime || undefined,
+        deliveryPlan: body.deliveryPlan || undefined,
+        priorityLevel: body.priorityLevel ? Number(body.priorityLevel) : undefined,
         items: {
           create: body.items || [],
         },

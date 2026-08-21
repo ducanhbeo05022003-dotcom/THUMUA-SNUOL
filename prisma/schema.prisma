@@ -98,6 +98,27 @@ model PurchaseRequest {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Theo dõi tiến độ đơn hàng (import từ file Excel theo dõi phiếu đề xuất)
+  proposalCode        String?   // Số phiếu đề xuất (mã nội bộ do người gửi đặt)
+  senderName          String?   // Người gửi (tên tự do, có thể không phải user hệ thống)
+  receivedDate        DateTime? // Ngày nhận
+  company             String?   // Công ty (ERC-B, BP, SV...)
+  requiredTime        String?   // Thời gian yêu cầu hoàn thành
+  deliveryPlan        String?   // Kế hoạch giao hàng
+  priorityLevel       Int?      // Cấp độ yêu cầu
+  purchaseStaff       String?   // Nhân sự thu mua phụ trách
+  lastUpdated         DateTime? // Ngày cập nhật
+  supplierName        String?   // NCC
+  poNumber            String?   // Số đơn đặt hàng
+  orderStatus         String?   // Tình trạng đơn hàng (tiến độ tổng quát)
+  accountingMaterial  String?   // Kế toán vật tư
+  taxStatus           String?   // Thuế
+  accountingPayment   String?   // Kế toán thanh toán
+  paymentStatus       String?   // Thanh toán
+  receivedStatus      String?   // Nhận hàng
+  warehouseConfirm    String?   // Xác nhận kho
+  surplusShortage     String?   // Thừa/thiếu
+
   items          PurchaseRequestItem[]
   purchaseOrders PurchaseOrder[]
 }
