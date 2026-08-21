@@ -160,6 +160,18 @@ model PurchaseOrder {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  // Thông tin tài chính đơn hàng (import từ file Đơn đặt hàng mua)
+  orderDate      DateTime? // Ngày lập đơn hàng
+  company        String?   // Công ty / Xí nghiệp (VD: ERC)
+  goodsAmount    Float?    // Tiền hàng
+  taxAmount      Float?    // Tiền thuế
+  totalAmount    Float?    // Tổng tiền
+  currency       String?   // Tiền tệ (USD, KHR...)
+  exchangeRate   Float?    // Tỷ giá
+  creatorName    String?   // Người lập (tên tự do)
+  categoryCode   String?   // Phân loại hàng
+  categoryName   String?   // Tên phân loại hàng
+
   items       PurchaseOrderItem[]
   contracts   Contract[]
   payments    Payment[]
