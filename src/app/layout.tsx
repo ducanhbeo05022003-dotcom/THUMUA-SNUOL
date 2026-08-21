@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Sidebar } from "@/components/Sidebar";
+import AssistantWidget from "@/components/AssistantWidget";
 import { getSession } from "@/lib/auth";
 import "./globals.css";
 
@@ -26,6 +27,7 @@ export default async function RootLayout({
                 {children}
               </main>
             </div>
+            <AssistantWidget />
           </div>
         ) : (
           <main>{children}</main>
