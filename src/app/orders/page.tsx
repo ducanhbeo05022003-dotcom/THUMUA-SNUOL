@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useColumnResize } from '@/hooks/useColumnResize';
+import Pagination from '@/components/Pagination';
+
+const PAGE_SIZE = 10;
 
 const ORDER_COLUMNS = [
   'Số đơn hàng', 'Ngày', 'Diễn giải', 'Nhà cung cấp', 'Công ty',
@@ -80,6 +83,11 @@ export default function OrdersPage() {
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState<PurchaseOrder | null>(null);
   const [companyFilter, setCompanyFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [totals, setTotals] = useState<Record<string, number>>({});
   const [formData, setFormData] = useState({
     supplierName: '',
     company: 'ERC',
@@ -93,13 +101,23 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, companyFilter]);
 
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/purchase-orders');
-      if (res.ok) setOrders(await res.json());
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      if (companyFilter) params.set('company', companyFilter);
+      const res = await fetch(`/api/purchase-orders?${params.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        setOrders(json.data);
+        setTotal(json.total);
+        setTotalPages(json.totalPages);
+        setCompanies(json.companies);
+        setTotals(json.totals);
+      }
     } finally {
       setLoading(false);
     }
@@ -125,11 +143,13 @@ export default function OrdersPage() {
     }
   };
 
-  const companies = Array.from(new Set(orders.map((o) => o.company).filter(Boolean))) as string[];
-  const filtered = companyFilter ? orders.filter((o) => o.company === companyFilter) : orders;
+  const totalUSD = totals.USD || 0;
+  const totalKHR = totals.KHR || 0;
 
-  const totalUSD = filtered.filter((o) => o.currency === 'USD').reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-  const totalKHR = filtered.filter((o) => o.currency === 'KHR').reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const handleCompanyFilter = (c: string) => {
+    setCompanyFilter(c);
+    setPage(1);
+  };
 
   return (
     <div className="p-8">
@@ -150,7 +170,7 @@ export default function OrdersPage() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex items-center gap-1 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm text-xs">
           <button
-            onClick={() => setCompanyFilter('')}
+            onClick={() => handleCompanyFilter('')}
             className={`px-2.5 py-1 rounded-lg font-medium ${companyFilter === '' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
           >
             Tất cả
@@ -158,7 +178,7 @@ export default function OrdersPage() {
           {companies.map((c) => (
             <button
               key={c}
-              onClick={() => setCompanyFilter(c)}
+              onClick={() => handleCompanyFilter(c)}
               className={`px-2.5 py-1 rounded-lg font-medium ${companyFilter === c ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
             >
               {c}
@@ -206,10 +226,10 @@ export default function OrdersPage() {
             <tbody className="divide-y divide-slate-100 text-xs sm:text-sm text-slate-600">
               {loading ? (
                 <tr><td colSpan={9} className="p-4 text-center text-slate-500">Đang tải...</td></tr>
-              ) : filtered.length === 0 ? (
+              ) : orders.length === 0 ? (
                 <tr><td colSpan={9} className="p-4 text-center text-slate-500">Chưa có đơn hàng nào</td></tr>
               ) : (
-                filtered.map((o) => (
+                orders.map((o) => (
                   <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4 font-semibold text-slate-800 overflow-hidden text-ellipsis whitespace-nowrap" title={o.code}>{o.code}</td>
                     <td className="py-3 px-4 text-slate-500 overflow-hidden text-ellipsis whitespace-nowrap">{fmtDate(o.orderDate || o.createdAt)}</td>
@@ -237,9 +257,12 @@ export default function OrdersPage() {
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500 flex items-center justify-between">
-          <span>Hiển thị <strong>{filtered.length}</strong> đơn hàng</span>
-          <button onClick={resetWidths} className="text-slate-400 hover:text-blue-600 underline underline-offset-2">
+        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-4 flex-wrap">
+          <span className="text-xs text-slate-500">
+            Trang <strong>{page}</strong>/{totalPages} · Tổng <strong>{total}</strong> đơn hàng
+          </span>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+          <button onClick={resetWidths} className="text-xs text-slate-400 hover:text-blue-600 underline underline-offset-2">
             Đặt lại độ rộng cột
           </button>
         </div>

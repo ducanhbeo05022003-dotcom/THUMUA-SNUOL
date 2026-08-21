@@ -5,11 +5,57 @@ import { getPrismaClient } from "@/lib/prisma";
 export async function GET(request: NextRequest) {
   try {
     await requireAuth();
-    const orders = await getPrismaClient().purchaseOrder.findMany({
-      include: { supplier: true, creator: true, items: true },
-      orderBy: { orderDate: 'desc' },
+    const prisma = getPrismaClient();
+    const { searchParams } = new URL(request.url);
+    const pageParam = searchParams.get('page');
+    const company = searchParams.get('company') || undefined;
+
+    // Backward-compatible: no `page` param -> return the full array
+    // (used by the dashboard, which needs every row to compute totals/charts).
+    if (!pageParam) {
+      const orders = await prisma.purchaseOrder.findMany({
+        include: { supplier: true, creator: true, items: true },
+        orderBy: { orderDate: 'desc' },
+      });
+      return NextResponse.json(orders);
+    }
+
+    const page = Math.max(1, parseInt(pageParam, 10) || 1);
+    const pageSize = Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10));
+    const where = company ? { company } : {};
+
+    const [data, total, companyRows, totalsByCurrency] = await Promise.all([
+      prisma.purchaseOrder.findMany({
+        where,
+        include: { supplier: true, creator: true, items: true },
+        orderBy: { orderDate: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.purchaseOrder.count({ where }),
+      prisma.purchaseOrder.findMany({ distinct: ['company'], select: { company: true } }),
+      prisma.purchaseOrder.groupBy({
+        by: ['currency'],
+        where,
+        _sum: { totalAmount: true },
+      }),
+    ]);
+
+    const companies = companyRows.map((r: any) => r.company).filter(Boolean);
+    const totals: Record<string, number> = {};
+    totalsByCurrency.forEach((t: any) => {
+      if (t.currency) totals[t.currency] = t._sum.totalAmount || 0;
     });
-    return NextResponse.json(orders);
+
+    return NextResponse.json({
+      data,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      companies,
+      totals,
+    });
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

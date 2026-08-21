@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Plus, X, RefreshCw } from 'lucide-react';
 import { useColumnResize } from '@/hooks/useColumnResize';
+import Pagination from '@/components/Pagination';
+
+const PAGE_SIZE = 10;
 
 const REQUEST_COLUMNS = [
   'Số phiếu đề xuất', 'Người gửi', 'Ngày nhận', 'Nội dung', 'Công ty',
@@ -63,6 +66,9 @@ export default function RequestsPage() {
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState<PurchaseRequest | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [formData, setFormData] = useState({
     department: '',
     company: '',
@@ -75,14 +81,24 @@ export default function RequestsPage() {
 
   useEffect(() => {
     syncFromSheet(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetchPRs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const fetchPRs = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/purchase-requests');
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      const res = await fetch(`/api/purchase-requests?${params.toString()}`);
       if (res.ok) {
-        setPrs(await res.json());
+        const json = await res.json();
+        setPrs(json.data);
+        setTotal(json.total);
+        setTotalPages(json.totalPages);
       }
     } finally {
       setLoading(false);
@@ -223,9 +239,12 @@ export default function RequestsPage() {
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500 flex items-center justify-between">
-          <span>Hiển thị <strong>{prs.length}</strong> đề xuất</span>
-          <button onClick={resetWidths} className="text-slate-400 hover:text-blue-600 underline underline-offset-2">
+        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-4 flex-wrap">
+          <span className="text-xs text-slate-500">
+            Trang <strong>{page}</strong>/{totalPages} · Tổng <strong>{total}</strong> đề xuất
+          </span>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+          <button onClick={resetWidths} className="text-xs text-slate-400 hover:text-blue-600 underline underline-offset-2">
             Đặt lại độ rộng cột
           </button>
         </div>
