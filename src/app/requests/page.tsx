@@ -2,6 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
+import { useColumnResize } from '@/hooks/useColumnResize';
+
+const REQUEST_COLUMNS = [
+  'Số phiếu đề xuất', 'Người gửi', 'Ngày nhận', 'Nội dung', 'Công ty',
+  'Đơn vị', 'NCC', 'Số ĐH', 'Tình trạng đơn hàng', 'Chi tiết',
+];
+const REQUEST_COL_DEFAULTS = [180, 150, 110, 300, 100, 100, 150, 150, 160, 90];
 
 interface PRItem {
   id: string;
@@ -49,6 +56,7 @@ function statusBadgeClass(status?: string) {
 }
 
 export default function RequestsPage() {
+  const { widths, startResize, resetWidths } = useColumnResize('requests-table-widths', REQUEST_COL_DEFAULTS);
   const [prs, setPrs] = useState<PurchaseRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -125,19 +133,26 @@ export default function RequestsPage() {
 
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse whitespace-nowrap">
+          <table className="border-collapse" style={{ tableLayout: 'fixed', width: widths.reduce((a, b) => a + b, 0) }}>
+            <colgroup>
+              {widths.map((w, i) => (
+                <col key={i} style={{ width: w }} />
+              ))}
+            </colgroup>
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-[13px] font-semibold text-slate-700">
-                <th className="py-3 px-4">Số phiếu đề xuất</th>
-                <th className="py-3 px-4">Người gửi</th>
-                <th className="py-3 px-4">Ngày nhận</th>
-                <th className="py-3 px-4">Nội dung</th>
-                <th className="py-3 px-4">Công ty</th>
-                <th className="py-3 px-4">Đơn vị</th>
-                <th className="py-3 px-4">NCC</th>
-                <th className="py-3 px-4">Số ĐH</th>
-                <th className="py-3 px-4">Tình trạng đơn hàng</th>
-                <th className="py-3 px-4 text-center">Chi tiết</th>
+                {REQUEST_COLUMNS.map((label, i) => (
+                  <th
+                    key={label}
+                    className={`relative py-3 px-4 select-none overflow-hidden text-ellipsis whitespace-nowrap ${i === 9 ? 'text-center' : ''}`}
+                  >
+                    {label}
+                    <span
+                      onMouseDown={startResize(i)}
+                      className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-blue-300/50 active:bg-blue-400/60"
+                    />
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs sm:text-sm text-slate-600">
@@ -152,20 +167,20 @@ export default function RequestsPage() {
               ) : (
                 prs.map((pr) => (
                   <tr key={pr.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-semibold text-slate-800">{pr.proposalCode || pr.code}</td>
-                    <td className="py-3 px-4 text-slate-600">{pr.senderName || pr.requester.name}</td>
-                    <td className="py-3 px-4 text-slate-500">{fmtDate(pr.receivedDate || pr.createdAt)}</td>
-                    <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={pr.note}>{pr.note || '—'}</td>
-                    <td className="py-3 px-4 text-slate-600">{pr.company || '—'}</td>
-                    <td className="py-3 px-4 text-slate-600">{pr.department || '—'}</td>
-                    <td className="py-3 px-4 text-slate-600">{pr.supplierName || '—'}</td>
-                    <td className="py-3 px-4 text-slate-600">{pr.poNumber || '—'}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 font-semibold text-slate-800 overflow-hidden text-ellipsis whitespace-nowrap" title={pr.proposalCode || pr.code}>{pr.proposalCode || pr.code}</td>
+                    <td className="py-3 px-4 text-slate-600 overflow-hidden text-ellipsis whitespace-nowrap" title={pr.senderName || pr.requester.name}>{pr.senderName || pr.requester.name}</td>
+                    <td className="py-3 px-4 text-slate-500 overflow-hidden text-ellipsis whitespace-nowrap">{fmtDate(pr.receivedDate || pr.createdAt)}</td>
+                    <td className="py-3 px-4 text-slate-600 overflow-hidden text-ellipsis whitespace-nowrap" title={pr.note}>{pr.note || '—'}</td>
+                    <td className="py-3 px-4 text-slate-600 overflow-hidden text-ellipsis whitespace-nowrap" title={pr.company}>{pr.company || '—'}</td>
+                    <td className="py-3 px-4 text-slate-600 overflow-hidden text-ellipsis whitespace-nowrap">{pr.department || '—'}</td>
+                    <td className="py-3 px-4 text-slate-600 overflow-hidden text-ellipsis whitespace-nowrap" title={pr.supplierName}>{pr.supplierName || '—'}</td>
+                    <td className="py-3 px-4 text-slate-600 overflow-hidden text-ellipsis whitespace-nowrap" title={pr.poNumber}>{pr.poNumber || '—'}</td>
+                    <td className="py-3 px-4 overflow-hidden text-ellipsis whitespace-nowrap">
                       <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(pr.orderStatus)}`}>
                         {pr.orderStatus || pr.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-4 text-center overflow-hidden">
                       <button
                         onClick={() => setDetail(pr)}
                         className="px-2.5 py-1 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 hover:border-slate-300"
@@ -179,8 +194,11 @@ export default function RequestsPage() {
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500">
-          Hiển thị <strong>{prs.length}</strong> đề xuất
+        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500 flex items-center justify-between">
+          <span>Hiển thị <strong>{prs.length}</strong> đề xuất</span>
+          <button onClick={resetWidths} className="text-slate-400 hover:text-blue-600 underline underline-offset-2">
+            Đặt lại độ rộng cột
+          </button>
         </div>
       </div>
 

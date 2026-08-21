@@ -2,6 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
+import { useColumnResize } from '@/hooks/useColumnResize';
+
+const ORDER_COLUMNS = [
+  'Số đơn hàng', 'Ngày', 'Diễn giải', 'Nhà cung cấp', 'Công ty',
+  'Tổng tiền', 'Người lập', 'Trạng thái', 'Chi tiết',
+];
+const ORDER_COL_DEFAULTS = [160, 100, 320, 200, 90, 140, 160, 130, 90];
 
 interface OrderItem {
   id: string;
@@ -67,6 +74,7 @@ function statusBadgeClass(status: string) {
 }
 
 export default function OrdersPage() {
+  const { widths, startResize, resetWidths } = useColumnResize('orders-table-widths', ORDER_COL_DEFAULTS);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -173,18 +181,26 @@ export default function OrdersPage() {
 
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse whitespace-nowrap">
+          <table className="border-collapse" style={{ tableLayout: 'fixed', width: widths.reduce((a, b) => a + b, 0) }}>
+            <colgroup>
+              {widths.map((w, i) => (
+                <col key={i} style={{ width: w }} />
+              ))}
+            </colgroup>
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-[13px] font-semibold text-slate-700">
-                <th className="py-3 px-4">Số đơn hàng</th>
-                <th className="py-3 px-4">Ngày</th>
-                <th className="py-3 px-4">Diễn giải</th>
-                <th className="py-3 px-4">Nhà cung cấp</th>
-                <th className="py-3 px-4">Công ty</th>
-                <th className="py-3 px-4 text-right">Tổng tiền</th>
-                <th className="py-3 px-4">Người lập</th>
-                <th className="py-3 px-4">Trạng thái</th>
-                <th className="py-3 px-4 text-center">Chi tiết</th>
+                {ORDER_COLUMNS.map((label, i) => (
+                  <th
+                    key={label}
+                    className={`relative py-3 px-4 select-none overflow-hidden text-ellipsis whitespace-nowrap ${i === 5 ? 'text-right' : i === 8 ? 'text-center' : ''}`}
+                  >
+                    {label}
+                    <span
+                      onMouseDown={startResize(i)}
+                      className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-blue-300/50 active:bg-blue-400/60"
+                    />
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs sm:text-sm text-slate-600">
@@ -195,19 +211,19 @@ export default function OrdersPage() {
               ) : (
                 filtered.map((o) => (
                   <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-semibold text-slate-800">{o.code}</td>
-                    <td className="py-3 px-4 text-slate-500">{fmtDate(o.orderDate || o.createdAt)}</td>
-                    <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={o.note}>{o.note || '—'}</td>
-                    <td className="py-3 px-4 text-slate-600">{o.supplier.name}</td>
-                    <td className="py-3 px-4 text-slate-600">{o.company || '—'}</td>
-                    <td className="py-3 px-4 text-right font-mono font-semibold text-slate-700">{fmtMoney(o.totalAmount, o.currency)}</td>
-                    <td className="py-3 px-4 text-slate-600">{o.creatorName || o.creator.name}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 font-semibold text-slate-800 overflow-hidden text-ellipsis whitespace-nowrap" title={o.code}>{o.code}</td>
+                    <td className="py-3 px-4 text-slate-500 overflow-hidden text-ellipsis whitespace-nowrap">{fmtDate(o.orderDate || o.createdAt)}</td>
+                    <td className="py-3 px-4 text-slate-600 overflow-hidden text-ellipsis whitespace-nowrap" title={o.note}>{o.note || '—'}</td>
+                    <td className="py-3 px-4 text-slate-600 overflow-hidden text-ellipsis whitespace-nowrap" title={o.supplier.name}>{o.supplier.name}</td>
+                    <td className="py-3 px-4 text-slate-600 overflow-hidden text-ellipsis whitespace-nowrap">{o.company || '—'}</td>
+                    <td className="py-3 px-4 text-right font-mono font-semibold text-slate-700 overflow-hidden text-ellipsis whitespace-nowrap">{fmtMoney(o.totalAmount, o.currency)}</td>
+                    <td className="py-3 px-4 text-slate-600 overflow-hidden text-ellipsis whitespace-nowrap" title={o.creatorName || o.creator.name}>{o.creatorName || o.creator.name}</td>
+                    <td className="py-3 px-4 overflow-hidden text-ellipsis whitespace-nowrap">
                       <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(o.status)}`}>
                         {statusLabel[o.status] || o.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-4 text-center overflow-hidden">
                       <button
                         onClick={() => setDetail(o)}
                         className="px-2.5 py-1 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 hover:border-slate-300"
@@ -221,8 +237,11 @@ export default function OrdersPage() {
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500">
-          Hiển thị <strong>{filtered.length}</strong> đơn hàng
+        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500 flex items-center justify-between">
+          <span>Hiển thị <strong>{filtered.length}</strong> đơn hàng</span>
+          <button onClick={resetWidths} className="text-slate-400 hover:text-blue-600 underline underline-offset-2">
+            Đặt lại độ rộng cột
+          </button>
         </div>
       </div>
 
