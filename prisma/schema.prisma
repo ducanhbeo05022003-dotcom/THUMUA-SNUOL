@@ -214,6 +214,10 @@ model Contract {
   value           Float?
   notes           String?
   createdAt       DateTime       @default(now())
+
+  company  String? // Công ty áp dụng hợp đồng (BP, ERC, SV...)
+  fileUrl  String? // Đường dẫn file PDF hợp đồng đã ký
+  fileName String? // Tên file gốc để hiển thị
 }
 
 model StockItem {
