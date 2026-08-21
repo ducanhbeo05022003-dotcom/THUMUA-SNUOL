@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { requireAuth } from "@/lib/auth";
 import { assistantTools, executeAssistantTool } from "@/lib/assistantTools";
 
@@ -9,71 +9,75 @@ Luôn trả lời bằng tiếng Việt, ngắn gọn, dùng bảng hoặc gạc
 Khi không chắc công ty/nhà cung cấp người dùng hỏi, hãy tìm kiếm rộng trước rồi thu hẹp dựa trên kết quả.
 Nếu không tìm thấy dữ liệu phù hợp, nói rõ là không tìm thấy thay vì bịa thông tin.`;
 
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
     await requireAuth();
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: "Trợ lý AI chưa được cấu hình (thiếu ANTHROPIC_API_KEY)" },
+        { error: "Trợ lý AI chưa được cấu hình (thiếu GEMINI_API_KEY)" },
         { status: 503 }
       );
     }
 
     const body = await request.json();
-    const userMessages: Anthropic.MessageParam[] = body.messages || [];
+    const chatMessages: ChatMessage[] = body.messages || [];
 
-    const client = new Anthropic();
-    const messages: Anthropic.MessageParam[] = [...userMessages];
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: SYSTEM_PROMPT,
+      tools: [{ functionDeclarations: assistantTools }],
+    });
 
+    // Everything except the last user message becomes prior history.
+    const history = chatMessages.slice(0, -1).map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+    const lastMessage = chatMessages[chatMessages.length - 1]?.content || "";
+
+    const chat = model.startChat({ history });
+
+    let result = await chat.sendMessage(lastMessage);
     let finalText = "";
     const MAX_ITERATIONS = 6;
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
-      const response = await client.messages.create({
-        model: "claude-opus-5",
-        max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        tools: assistantTools,
-        messages,
-      });
+      const functionCalls = result.response.functionCalls();
 
-      if (response.stop_reason !== "tool_use") {
-        const textBlock = response.content.find(
-          (b): b is Anthropic.TextBlock => b.type === "text"
-        );
-        finalText = textBlock?.text || "";
+      if (!functionCalls || functionCalls.length === 0) {
+        finalText = result.response.text();
         break;
       }
 
-      messages.push({ role: "assistant", content: response.content });
-
-      const toolUseBlocks = response.content.filter(
-        (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
+      const functionResponses = await Promise.all(
+        functionCalls.map(async (call) => ({
+          functionResponse: {
+            name: call.name,
+            response: await executeAssistantTool(call.name, call.args),
+          },
+        }))
       );
 
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-      for (const tool of toolUseBlocks) {
-        const result = await executeAssistantTool(tool.name, tool.input);
-        toolResults.push({
-          type: "tool_result",
-          tool_use_id: tool.id,
-          content: result,
-        });
-      }
-
-      messages.push({ role: "user", content: toolResults });
+      result = await chat.sendMessage(functionResponses);
     }
 
     return NextResponse.json({ reply: finalText || "Xin lỗi, tôi chưa tìm được câu trả lời phù hợp." });
   } catch (error: any) {
-    if (error instanceof Anthropic.AuthenticationError) {
+    console.error("Assistant error:", error);
+    const message = error?.message || "";
+    if (message.includes("API key") || message.includes("API_KEY")) {
       return NextResponse.json({ error: "API key không hợp lệ" }, { status: 500 });
     }
-    if (error instanceof Anthropic.RateLimitError) {
+    if (message.includes("429") || message.toLowerCase().includes("quota")) {
       return NextResponse.json({ error: "Đang quá tải, vui lòng thử lại sau" }, { status: 429 });
     }
-    console.error("Assistant error:", error);
     return NextResponse.json({ error: "Lỗi xử lý trợ lý AI" }, { status: 500 });
   }
 }

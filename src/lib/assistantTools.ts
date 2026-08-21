@@ -1,3 +1,4 @@
+import { SchemaType, FunctionDeclaration } from "@google/generative-ai";
 import { getPrismaClient } from "./prisma";
 
 const DEFAULT_KHR_RATE = 0.0002439;
@@ -9,63 +10,59 @@ function toUSD(totalAmount: number | null | undefined, currency: string | null |
   return amount;
 }
 
-export const assistantTools = [
+export const assistantTools: FunctionDeclaration[] = [
   {
     name: "search_orders",
     description:
       "Tìm kiếm đơn đặt hàng (purchase orders) theo công ty, nhà cung cấp, hoặc từ khóa trong diễn giải. Trả về tối đa 15 kết quả gần nhất.",
-    input_schema: {
-      type: "object" as const,
+    parameters: {
+      type: SchemaType.OBJECT,
       properties: {
-        company: { type: "string", description: "Mã công ty, VD: ERC, BP, SV" },
-        supplierName: { type: "string", description: "Tên nhà cung cấp (tìm gần đúng)" },
-        keyword: { type: "string", description: "Từ khóa trong diễn giải đơn hàng" },
-        limit: { type: "number", description: "Số kết quả tối đa, mặc định 15" },
+        company: { type: SchemaType.STRING, description: "Mã công ty, VD: ERC, BP, SV" },
+        supplierName: { type: SchemaType.STRING, description: "Tên nhà cung cấp (tìm gần đúng)" },
+        keyword: { type: SchemaType.STRING, description: "Từ khóa trong diễn giải đơn hàng" },
+        limit: { type: SchemaType.NUMBER, description: "Số kết quả tối đa, mặc định 15" },
       },
-      additionalProperties: false,
     },
   },
   {
     name: "search_requests",
     description:
       "Tìm kiếm phiếu đề xuất mua hàng theo công ty, người gửi, tình trạng, hoặc từ khóa nội dung. Trả về tối đa 15 kết quả gần nhất.",
-    input_schema: {
-      type: "object" as const,
+    parameters: {
+      type: SchemaType.OBJECT,
       properties: {
-        company: { type: "string", description: "Mã công ty, VD: ERC, BP, SV" },
-        senderName: { type: "string", description: "Tên người gửi đề xuất" },
-        orderStatus: { type: "string", description: "Tình trạng, VD: Hoàn thành, Thanh Toán, KT kiểm tra, Chưa lên đơn hàng" },
-        keyword: { type: "string", description: "Từ khóa trong nội dung đề xuất" },
-        limit: { type: "number", description: "Số kết quả tối đa, mặc định 15" },
+        company: { type: SchemaType.STRING, description: "Mã công ty, VD: ERC, BP, SV" },
+        senderName: { type: SchemaType.STRING, description: "Tên người gửi đề xuất" },
+        orderStatus: { type: SchemaType.STRING, description: "Tình trạng, VD: Hoàn thành, Thanh Toán, KT kiểm tra, Chưa lên đơn hàng" },
+        keyword: { type: SchemaType.STRING, description: "Từ khóa trong nội dung đề xuất" },
+        limit: { type: SchemaType.NUMBER, description: "Số kết quả tối đa, mặc định 15" },
       },
-      additionalProperties: false,
     },
   },
   {
     name: "get_summary_stats",
     description:
       "Lấy số liệu tổng hợp toàn hệ thống: tổng giá trị đơn hàng quy đổi USD, chi tiêu theo từng công ty, số lượng đơn hàng/đề xuất, và phân bổ trạng thái đề xuất. Dùng khi người dùng hỏi câu tổng quan như 'tổng chi tiêu', 'công ty nào chi nhiều nhất', 'bao nhiêu đơn hàng đang chờ'.",
-    input_schema: {
-      type: "object" as const,
+    parameters: {
+      type: SchemaType.OBJECT,
       properties: {},
-      additionalProperties: false,
     },
   },
   {
     name: "search_contracts",
     description: "Tìm hợp đồng đã ký theo công ty hoặc tên nhà cung cấp.",
-    input_schema: {
-      type: "object" as const,
+    parameters: {
+      type: SchemaType.OBJECT,
       properties: {
-        company: { type: "string", description: "Mã công ty, VD: ERC, BP, SV" },
-        supplierName: { type: "string", description: "Tên nhà cung cấp" },
+        company: { type: SchemaType.STRING, description: "Mã công ty, VD: ERC, BP, SV" },
+        supplierName: { type: SchemaType.STRING, description: "Tên nhà cung cấp" },
       },
-      additionalProperties: false,
     },
   },
 ];
 
-export async function executeAssistantTool(name: string, input: any): Promise<string> {
+export async function executeAssistantTool(name: string, input: any): Promise<object> {
   const prisma = getPrismaClient();
 
   try {
@@ -83,8 +80,8 @@ export async function executeAssistantTool(name: string, input: any): Promise<st
           take: Math.min(input.limit || 15, 30),
         });
 
-        return JSON.stringify(
-          orders.map((o: any) => ({
+        return {
+          results: orders.map((o: any) => ({
             code: o.code,
             date: o.orderDate,
             supplier: o.supplier.name,
@@ -93,8 +90,8 @@ export async function executeAssistantTool(name: string, input: any): Promise<st
             currency: o.currency,
             status: o.status,
             note: o.note,
-          }))
-        );
+          })),
+        };
       }
 
       case "search_requests": {
@@ -110,8 +107,8 @@ export async function executeAssistantTool(name: string, input: any): Promise<st
           take: Math.min(input.limit || 15, 30),
         });
 
-        return JSON.stringify(
-          requests.map((r: any) => ({
+        return {
+          results: requests.map((r: any) => ({
             code: r.proposalCode || r.code,
             sender: r.senderName,
             company: r.company,
@@ -121,8 +118,8 @@ export async function executeAssistantTool(name: string, input: any): Promise<st
             supplierName: r.supplierName,
             poNumber: r.poNumber,
             receivedDate: r.receivedDate,
-          }))
-        );
+          })),
+        };
       }
 
       case "get_summary_stats": {
@@ -145,7 +142,7 @@ export async function executeAssistantTool(name: string, input: any): Promise<st
           byStatus[s] = (byStatus[s] || 0) + 1;
         });
 
-        return JSON.stringify({
+        return {
           totalOrders: orders.length,
           totalRequests: requests.length,
           totalUSDEquivalent: Math.round(totalUSD),
@@ -153,7 +150,7 @@ export async function executeAssistantTool(name: string, input: any): Promise<st
             Object.entries(byCompany).map(([k, v]) => [k, Math.round(v)])
           ),
           requestStatusBreakdown: byStatus,
-        });
+        };
       }
 
       case "search_contracts": {
@@ -168,21 +165,21 @@ export async function executeAssistantTool(name: string, input: any): Promise<st
           take: 20,
         });
 
-        return JSON.stringify(
-          contracts.map((c: any) => ({
+        return {
+          results: contracts.map((c: any) => ({
             code: c.code,
             supplier: c.supplier.name,
             company: c.company,
             fileName: c.fileName,
             fileUrl: c.fileUrl,
-          }))
-        );
+          })),
+        };
       }
 
       default:
-        return JSON.stringify({ error: `Unknown tool: ${name}` });
+        return { error: `Unknown tool: ${name}` };
     }
   } catch (e: any) {
-    return JSON.stringify({ error: e?.message || "Tool execution failed" });
+    return { error: e?.message || "Tool execution failed" };
   }
 }
