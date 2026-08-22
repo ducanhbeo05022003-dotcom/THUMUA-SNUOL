@@ -1,4 +1,4 @@
-import { SchemaType, FunctionDeclaration } from "@google/generative-ai";
+import { Type as SchemaType, FunctionDeclaration } from "@google/genai";
 import { getPrismaClient } from "./prisma";
 
 const DEFAULT_KHR_RATE = 0.0002439;
@@ -62,7 +62,7 @@ export const assistantTools: FunctionDeclaration[] = [
   },
 ];
 
-export async function executeAssistantTool(name: string, input: any): Promise<object> {
+export async function executeAssistantTool(name: string, input: any): Promise<Record<string, unknown>> {
   const prisma = getPrismaClient();
 
   try {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { requireAuth } from "@/lib/auth";
 import { assistantTools, executeAssistantTool } from "@/lib/assistantTools";
 
@@ -28,12 +28,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const chatMessages: ChatMessage[] = body.messages || [];
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.6-flash",
-      systemInstruction: SYSTEM_PROMPT,
-      tools: [{ functionDeclarations: assistantTools }],
-    });
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     // Everything except the last user message becomes prior history.
     const history = chatMessages.slice(0, -1).map((m) => ({
@@ -42,30 +37,37 @@ export async function POST(request: NextRequest) {
     }));
     const lastMessage = chatMessages[chatMessages.length - 1]?.content || "";
 
-    const chat = model.startChat({ history });
+    const chat = ai.chats.create({
+      model: "gemini-3.6-flash",
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        tools: [{ functionDeclarations: assistantTools }],
+      },
+      history,
+    });
 
-    let result = await chat.sendMessage(lastMessage);
+    let response = await chat.sendMessage({ message: lastMessage });
     let finalText = "";
     const MAX_ITERATIONS = 6;
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
-      const functionCalls = result.response.functionCalls();
+      const functionCalls = response.functionCalls;
 
       if (!functionCalls || functionCalls.length === 0) {
-        finalText = result.response.text();
+        finalText = response.text || "";
         break;
       }
 
-      const functionResponses = await Promise.all(
+      const functionResponseParts = await Promise.all(
         functionCalls.map(async (call) => ({
           functionResponse: {
-            name: call.name,
-            response: await executeAssistantTool(call.name, call.args),
+            name: call.name!,
+            response: await executeAssistantTool(call.name!, call.args),
           },
         }))
       );
 
-      result = await chat.sendMessage(functionResponses);
+      response = await chat.sendMessage({ message: functionResponseParts });
     }
 
     return NextResponse.json({ reply: finalText || "Xin lỗi, tôi chưa tìm được câu trả lời phù hợp." });
