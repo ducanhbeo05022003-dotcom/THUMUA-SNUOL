@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, RefreshCw } from 'lucide-react';
 import { useColumnResize } from '@/hooks/useColumnResize';
 import Pagination from '@/components/Pagination';
 
@@ -80,6 +80,8 @@ export default function OrdersPage() {
   const { widths, startResize, resetWidths } = useColumnResize('orders-table-widths', ORDER_COL_DEFAULTS);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState<PurchaseOrder | null>(null);
   const [companyFilter, setCompanyFilter] = useState('');
@@ -100,9 +102,28 @@ export default function OrdersPage() {
   });
 
   useEffect(() => {
+    syncItemsFromSheet(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     fetchOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, companyFilter]);
+
+  const syncItemsFromSheet = async (silent = false) => {
+    setSyncing(true);
+    if (!silent) setLoading(true);
+    try {
+      await fetch('/api/sync/order-items', { method: 'POST' });
+      setLastSync(new Date());
+    } catch (error) {
+      console.error('Sync error:', error);
+    } finally {
+      setSyncing(false);
+      fetchOrders();
+    }
+  };
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -156,15 +177,28 @@ export default function OrdersPage() {
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Đơn hàng</h1>
-          <p className="text-slate-500 text-sm mt-1">Quản lý đơn đặt hàng mua ngoài và trạng thái giao hàng</p>
+          <p className="text-slate-500 text-sm mt-1">
+            Quản lý đơn đặt hàng mua ngoài và trạng thái giao hàng · đồng bộ chi tiết mặt hàng từ Google Sheet
+            {lastSync && <span className="text-slate-400"> · cập nhật lúc {lastSync.toLocaleTimeString('vi-VN')}</span>}
+          </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-sm transition"
-        >
-          <Plus className="w-4 h-4" />
-          Tạo đơn hàng mới
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => syncItemsFromSheet(false)}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-sm text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Đang đồng bộ...' : 'Đồng bộ ngay'}
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-sm transition"
+          >
+            <Plus className="w-4 h-4" />
+            Tạo đơn hàng mới
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-4">

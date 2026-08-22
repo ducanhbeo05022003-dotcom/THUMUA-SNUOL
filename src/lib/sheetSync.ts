@@ -3,6 +3,11 @@ import { getPrismaClient } from "./prisma";
 const SHEET_ID = process.env.REQUESTS_SHEET_ID || "1Wm8ZkgB4ea2eLWRPrR2k_fpL5HEtD18eUf1JcSt2Fvk";
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
 
+const ORDER_ITEMS_SHEET_ID = process.env.ORDER_ITEMS_SHEET_ID;
+const ORDER_ITEMS_CSV_URL = ORDER_ITEMS_SHEET_ID
+  ? `https://docs.google.com/spreadsheets/d/${ORDER_ITEMS_SHEET_ID}/export?format=csv`
+  : undefined;
+
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -175,4 +180,79 @@ export async function syncPurchaseRequestsFromSheet(): Promise<SyncSummary> {
   }
 
   return { totalProposals: groups.size, created, updated, totalItems };
+}
+
+export interface OrderItemsSyncSummary {
+  configured: boolean;
+  totalOrders: number;
+  matched: number;
+  unmatched: string[];
+  totalItems: number;
+}
+
+/**
+ * Expected sheet columns (row 1 = header, data from row 2):
+ * A: Số đơn hàng   B: Tên hàng hóa   C: ĐVT   D: Số lượng   E: Đơn giá
+ * Multiple rows may share the same order code (one row per item).
+ */
+export async function syncOrderItemsFromSheet(): Promise<OrderItemsSyncSummary> {
+  if (!ORDER_ITEMS_CSV_URL) {
+    return { configured: false, totalOrders: 0, matched: 0, unmatched: [], totalItems: 0 };
+  }
+
+  const res = await fetch(ORDER_ITEMS_CSV_URL, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch order items sheet CSV: ${res.status}`);
+  }
+  const csvText = await res.text();
+  const rows = parseCSV(csvText);
+
+  const dataRows = rows.slice(1).filter((r) => s(r[0]) !== undefined);
+
+  const groups = new Map<string, string[][]>();
+  for (const r of dataRows) {
+    const orderCode = s(r[0]);
+    if (!orderCode) continue;
+    if (!groups.has(orderCode)) groups.set(orderCode, []);
+    groups.get(orderCode)!.push(r);
+  }
+
+  const prisma = getPrismaClient();
+  let matched = 0;
+  let totalItems = 0;
+  const unmatched: string[] = [];
+
+  for (const [orderCode, groupRows] of groups) {
+    const order = await prisma.purchaseOrder.findUnique({ where: { code: orderCode } });
+    if (!order) {
+      unmatched.push(orderCode);
+      continue;
+    }
+
+    const items = groupRows
+      .map((r) => ({
+        name: s(r[1]),
+        unit: s(r[2]) || "Cái",
+        quantity: parseFloat((r[3] || "0").replace(",", ".")) || 0,
+        unitPrice: parseFloat((r[4] || "0").replace(",", ".")) || 0,
+      }))
+      .filter((it) => it.name);
+
+    await prisma.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: order.id } });
+    if (items.length > 0) {
+      await prisma.purchaseOrderItem.createMany({
+        data: items.map((it) => ({
+          purchaseOrderId: order.id,
+          name: it.name!,
+          unit: it.unit,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+        })),
+      });
+      totalItems += items.length;
+    }
+    matched++;
+  }
+
+  return { configured: true, totalOrders: groups.size, matched, unmatched, totalItems };
 }
