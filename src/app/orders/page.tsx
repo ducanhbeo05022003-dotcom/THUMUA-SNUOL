@@ -391,6 +391,35 @@ export default function OrdersPage() {
                 <div><span className="text-slate-500">Tỷ giá:</span> <span className="font-medium">{detail.exchangeRate ?? '—'}</span></div>
                 <div><span className="text-slate-500">Phân loại:</span> <span className="font-medium">{detail.categoryName || '—'}</span></div>
               </div>
+              <div className="pt-3 border-t border-slate-100">
+                <h4 className="text-xs font-semibold text-slate-700 mb-2">Chi tiết mặt hàng</h4>
+                {detail.items && detail.items.length > 0 ? (
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="text-left py-2 px-3 font-semibold text-slate-600">Tên hàng hóa</th>
+                          <th className="text-right py-2 px-3 font-semibold text-slate-600">SL</th>
+                          <th className="text-right py-2 px-3 font-semibold text-slate-600">Đơn giá</th>
+                          <th className="text-right py-2 px-3 font-semibold text-slate-600">Thành tiền</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {detail.items.map((it) => (
+                          <tr key={it.id}>
+                            <td className="py-2 px-3 text-slate-700">{it.name} <span className="text-slate-400">({it.unit})</span></td>
+                            <td className="py-2 px-3 text-right text-slate-600">{it.quantity.toLocaleString('vi-VN')}</td>
+                            <td className="py-2 px-3 text-right text-slate-600 font-mono">{it.unitPrice.toLocaleString('vi-VN')}</td>
+                            <td className="py-2 px-3 text-right text-slate-700 font-mono font-semibold">{(it.quantity * it.unitPrice).toLocaleString('vi-VN')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic py-2">Chưa có dữ liệu chi tiết mặt hàng cho đơn hàng này</p>
+                )}
+              </div>
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-slate-500 text-xs">Tổng tiền</span>
                 <span className="font-mono font-bold text-lg text-slate-800">{fmtMoney(detail.totalAmount, detail.currency)}</span>
