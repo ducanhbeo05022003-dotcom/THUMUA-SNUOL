@@ -62,6 +62,13 @@ function parseVNDate(raw: string | undefined, fallbackYear: number): Date | unde
   return isNaN(d.getTime()) ? undefined : d;
 }
 
+// "," is a thousands separator, "." is the decimal point (e.g. "1,234.5" -> 1234.5).
+function parseVNNumber(raw: string | undefined): number {
+  if (!raw) return 0;
+  const cleaned = raw.trim().replace(/,/g, "");
+  return parseFloat(cleaned) || 0;
+}
+
 function s(val: string | undefined): string | undefined {
   if (val === undefined) return undefined;
   const trimmed = val.trim();
@@ -192,8 +199,9 @@ export interface OrderItemsSyncSummary {
 
 /**
  * Expected sheet columns (row 1 = header, data from row 2):
- * A: Số đơn hàng   B: Tên hàng hóa   C: ĐVT   D: Số lượng   E: Đơn giá
- * Multiple rows may share the same order code (one row per item).
+ * A: Số đơn hàng   B: Tên hàng hóa   C: ĐVT   D: (blank)   E: Số lượng   F: Đơn giá   G: Thành tiền
+ * Multiple rows may share the same order code (one row per item). Numbers use
+ * "," as the thousands separator and "." as the decimal point.
  */
 export async function syncOrderItemsFromSheet(): Promise<OrderItemsSyncSummary> {
   if (!ORDER_ITEMS_CSV_URL) {
@@ -233,8 +241,8 @@ export async function syncOrderItemsFromSheet(): Promise<OrderItemsSyncSummary> 
       .map((r) => ({
         name: s(r[1]),
         unit: s(r[2]) || "Cái",
-        quantity: parseFloat((r[3] || "0").replace(",", ".")) || 0,
-        unitPrice: parseFloat((r[4] || "0").replace(",", ".")) || 0,
+        quantity: parseVNNumber(r[4]),
+        unitPrice: parseVNNumber(r[5]),
       }))
       .filter((it) => it.name);
 
