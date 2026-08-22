@@ -3,6 +3,10 @@ import { GoogleGenAI } from "@google/genai";
 import { requireAuth } from "@/lib/auth";
 import { assistantTools, executeAssistantTool } from "@/lib/assistantTools";
 
+// Tool-calling round trips (Gemini call + DB query + Gemini call) can exceed
+// the default 10s serverless limit on cold starts.
+export const maxDuration = 30;
+
 const SYSTEM_PROMPT = `Bạn là trợ lý AI của hệ thống QLMH (Quản lý mua hàng) cho KLH Snuol.
 Nhiệm vụ: giúp người dùng tra cứu đơn hàng, đề xuất mua hàng, hợp đồng, và tổng hợp số liệu chi tiêu.
 Luôn trả lời bằng tiếng Việt, ngắn gọn, dùng bảng hoặc gạch đầu dòng khi liệt kê nhiều mục.
